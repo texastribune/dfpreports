@@ -80,8 +80,30 @@ class Order(object):
 if __name__ == '__main__':
     client = DfpClient(path=HOME)
 
+    # https://developers.google.com/doubleclick-publishers/docs/reference/v201311/OrderService#getOrdersByStatement
     inventory_service = client.GetService('OrderService', version='v201311')
 
-    statement = {'query': 'LIMIT 500'}
-    results = inventory_service.GetOrdersByStatement(statement)[0]['results']
+    today = datetime.date.today()
+    then = datetime.date.today() + datetime.timedelta(days=7)
+    values = [
+        {
+            'key': 'today',
+            'value': {
+                'xsi_type': 'TextValue',
+                'value': today.strftime('%Y-%m-%dT%H:%M:%S')
+            }
+        },
+        {
+            'key': 'then',
+            'value': {
+                'xsi_type': 'TextValue',
+                'value': then.strftime('%Y-%m-%dT%H:%M:%S')
+            }
+        },
+    ]
+    filter_statement = {
+        'query': ('WHERE endDateTime >= :today AND endDateTime < :then LIMIT 500'),
+        'values': values,
+    }
+    results = inventory_service.GetOrdersByStatement(filter_statement)[0]['results']
     orders = [Order(x) for x in results]
