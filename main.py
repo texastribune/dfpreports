@@ -64,6 +64,13 @@ class Order(object):
     def __unicode__(self):
         return self.name.encode('utf8')
 
+    @property
+    def admin_url(self):
+        # XXX global: `network`
+        return ('https://www.google.com/dfp/{}#delivery/OrderDetail/orderId={}'
+            .format(network, self.id)
+        )
+
     # utilities
     def to_datetime(self, data):
         try:
@@ -79,30 +86,31 @@ class Order(object):
 
 if __name__ == '__main__':
     client = DfpClient(path=HOME)
+    network = client._headers['networkCode']
 
     # https://developers.google.com/doubleclick-publishers/docs/reference/v201311/OrderService#getOrdersByStatement
     inventory_service = client.GetService('OrderService', version='v201311')
 
-    today = datetime.date.today()
-    then = datetime.date.today() + datetime.timedelta(days=7)
+    start = datetime.date.today() - datetime.timedelta(days=90)
+    end = datetime.date.today()
     values = [
         {
-            'key': 'today',
+            'key': 'start',
             'value': {
                 'xsi_type': 'TextValue',
-                'value': today.strftime('%Y-%m-%dT%H:%M:%S')
+                'value': start.strftime('%Y-%m-%dT%H:%M:%S')
             }
         },
         {
-            'key': 'then',
+            'key': 'end',
             'value': {
                 'xsi_type': 'TextValue',
-                'value': then.strftime('%Y-%m-%dT%H:%M:%S')
+                'value': end.strftime('%Y-%m-%dT%H:%M:%S')
             }
         },
     ]
     filter_statement = {
-        'query': ('WHERE endDateTime >= :today AND endDateTime < :then LIMIT 500'),
+        'query': ('WHERE endDateTime >= :start AND endDateTime < :end LIMIT 500'),
         'values': values,
     }
     results = inventory_service.GetOrdersByStatement(filter_statement)[0]['results']
