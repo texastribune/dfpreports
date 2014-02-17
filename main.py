@@ -7,6 +7,7 @@ import logging
 import os
 
 from adspygoogle.dfp.DfpClient import DfpClient
+from csvkit.unicsv import UnicodeCSVDictWriter
 import pytz
 
 
@@ -82,6 +83,17 @@ class Order(object):
         timetuple = (data['date']['year'], data['date']['month'], data['date']['day'], data['hour'], data['minute'], data['second'])
         timetuple = map(int, timetuple)
         return datetime.datetime(*timetuple, tzinfo=tz)
+
+
+def make_report(orders):
+    fieldnames = orders[0].__dict__.keys()
+    with open('report.csv', 'wb') as f:
+        writer = UnicodeCSVDictWriter(f, fieldnames=fieldnames)
+        writer.writerow(dict(zip(fieldnames, fieldnames)))
+        for order in orders:
+            data = order.__dict__.copy()
+            data['totalBudget'] = data['totalBudget']['microAmount']
+            writer.writerow(data)
 
 
 if __name__ == '__main__':
