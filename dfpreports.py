@@ -22,20 +22,20 @@ logger.addHandler(ColorizingStreamHandler())
 
 class Order(object):
     """
-    advertiserId: str(int) ex: '12345'
-    creatorId: str(int) ex: '12345'
+    id: int ex: 12345
+    creatorId: int ex: 12345
     currencyCode: str ex: 'USD'
     endDateTime: datetime
-    externalOrderId: str(int) ex: '0'
-    id: str(int) ex: '12345'
+    externalOrderId: int ex: 0
+    id: int ex: 12345
     isArchived: bool
     lastModifiedByApp: str ex: 'Goog_DFPUI'
     lastModifiedDateTime: datetime
     name: str ex: '1 for All Campaign'
-    notes: str
-    poNumber
+    notes: str or None
+    poNumber: None
     startDateTime: datetime
-    status:
+    status: str
     totalBudget:
         currencyCode: 'USD'
         microAmount: '0'
@@ -43,27 +43,21 @@ class Order(object):
     totalImpressionsDelivered: int
     traffickerId: str(int)
     unlimitedEndDateTime: bool
-
     """
     def __init__(self, order_data):
         self._original_data = order_data  # hang onto the original data
-        self.__dict__ = order_data.copy()
+        self.__dict__ = {k: v for k, v in order_data.__dict__.items()
+                if not(k.startswith('_'))}
 
         # begin type conversions
-
-        # bool
-        self.isArchived = self.isArchived == 'true'
-        self.unlimitedEndDateTime = self.unlimitedEndDateTime == 'true'
-
-        # int
-        self.totalClicksDelivered = int(order_data['totalClicksDelivered'])
-        self.totalImpressionsDelivered = int(order_data['totalImpressionsDelivered'])
+        self.status = str(self.status)  # suds.sax.text.Text
 
         # datetimes
         if 'endDateTime' in order_data:
-            self.endDateTime = self.to_datetime(order_data['endDateTime'])
-        self.lastModifiedDateTime = self.to_datetime(order_data['lastModifiedDateTime'])
-        self.startDateTime = self.to_datetime(order_data['startDateTime'])
+            self.endDateTime = Order.convert_datetime(order_data.endDateTime)
+        self.lastModifiedDateTime = Order.convert_datetime(order_data.lastModifiedDateTime)
+        self.startDateTime = Order.convert_datetime(order_data.startDateTime)
+        self.totalBudget = Order.convert_money(order_data.totalBudget)
 
     def __repr__(self):
         return self.__unicode__()
@@ -79,15 +73,31 @@ class Order(object):
         )
 
     # utilities
-    def to_datetime(self, data):
+    @staticmethod
+    def convert_datetime(data):
+        """Convert `suds` datetimes to Python datetimes."""
         try:
-            tz = pytz.timezone('timeZoneID')
+            tz = pytz.timezone(data.timeZoneID)
         except pytz.UnknownTimeZoneError as e:
             logger.warn(e)
             tz = None
-        timetuple = (data['date']['year'], data['date']['month'], data['date']['day'], data['hour'], data['minute'], data['second'])
-        timetuple = map(int, timetuple)
-        return datetime.datetime(*timetuple, tzinfo=tz)
+        return datetime.datetime(
+            data.date.year,
+            data.date.month,
+            data.date.day,
+            data.hour,
+            data.minute,
+            data.second,
+            tzinfo=tz,
+        )
+
+    @staticmethod
+    def convert_money(data):
+        """Convert suds.sudsobject.Money to dict."""
+        return {
+            'currencyCode': data.currencyCode,
+            'microAmount': data.microAmount,
+        }
 
 
 def make_report(orders):
