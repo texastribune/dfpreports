@@ -8,10 +8,16 @@ import os
 
 from adspygoogle.dfp.DfpClient import DfpClient
 from csvkit.unicsv import UnicodeCSVDictWriter
+from project_runpy import ColorizingStreamHandler
 import pytz
 
 
 HOME = os.path.expanduser('~')
+
+
+logger = logging.getLogger(__name__)
+# logger.addHandler(logging.StreamHandler())
+logger.addHandler(ColorizingStreamHandler())
 
 
 class Order(object):
@@ -77,7 +83,6 @@ class Order(object):
         try:
             tz = pytz.timezone('timeZoneID')
         except pytz.UnknownTimeZoneError as e:
-            logger = logging.getLogger(__name__)
             logger.warn(e)
             tz = None
         timetuple = (data['date']['year'], data['date']['month'], data['date']['day'], data['hour'], data['minute'], data['second'])

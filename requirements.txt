@@ -1,2 +1,4 @@
 adspygoogle==1.1.6
 csvkit==0.6.1
+project-runpy==0.3.0
+pytz==2013.9
