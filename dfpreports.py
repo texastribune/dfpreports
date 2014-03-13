@@ -6,9 +6,9 @@ import datetime
 import logging
 import os
 
-from adspygoogle.dfp.DfpClient import DfpClient
+from googleads import dfp, oauth2
 from csvkit.unicsv import UnicodeCSVDictWriter
-from project_runpy import ColorizingStreamHandler
+from project_runpy import env, ColorizingStreamHandler
 import pytz
 
 
@@ -102,11 +102,21 @@ def make_report(orders):
 
 
 if __name__ == '__main__':
-    client = DfpClient(path=HOME)
-    network = client._headers['networkCode']
+    # auth example:
+    #   https://github.com/googleads/googleads-python-lib/blob/master/examples/dfp/authentication/create_dfp_client_without_yaml.py
+    oauth2_client = oauth2.GoogleRefreshTokenClient(
+        client_id=env.get('CLIENT_ID'),
+        client_secret=env.get('CLIENT_SECRET'),
+        refresh_token=env.get('REFRESH_TOKEN'),
+    )
+    client = dfp.DfpClient(oauth2_client, env.get('APPLICATION_NAME'))
+    networks = client.GetService('NetworkService').getAllNetworks()
+    network = networks[0]['networkCode']
+    client = dfp.DfpClient(oauth2_client, env.get('APPLICATION_NAME'), network)
 
-    # https://developers.google.com/doubleclick-publishers/docs/reference/v201311/OrderService#getOrdersByStatement
-    inventory_service = client.GetService('OrderService', version='v201311')
+
+    # https://github.com/googleads/googleads-python-lib/blob/master/examples/dfp/v201403/order_service/get_orders_by_statement.py
+    inventory_service = client.GetService('OrderService', version='v201403')
 
     start = datetime.date.today() - datetime.timedelta(days=90)
     end = datetime.date.today()
@@ -115,20 +125,19 @@ if __name__ == '__main__':
             'key': 'start',
             'value': {
                 'xsi_type': 'TextValue',
-                'value': start.strftime('%Y-%m-%dT%H:%M:%S')
+                'value': start.strftime('%Y-%m-%dT%H:%M:%S'),
             }
         },
         {
             'key': 'end',
             'value': {
                 'xsi_type': 'TextValue',
-                'value': end.strftime('%Y-%m-%dT%H:%M:%S')
+                'value': end.strftime('%Y-%m-%dT%H:%M:%S'),
             }
         },
     ]
-    filter_statement = {
-        'query': ('WHERE endDateTime >= :start AND endDateTime < :end LIMIT 500'),
-        'values': values,
-    }
-    results = inventory_service.GetOrdersByStatement(filter_statement)[0]['results']
+    query = 'WHERE endDateTime >= :start AND endDateTime < :end'
+    statement = dfp.FilterStatement(query, values)
+    response = inventory_service.getOrdersByStatement(statement.ToStatement())
+    results = response['results']
     orders = [Order(x) for x in results]
